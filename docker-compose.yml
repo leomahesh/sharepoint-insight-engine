@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: sharepoint_backend
+    ports:
+      - "8000:8000"
+    environment:
+      - SHAREPOINT_SITE_URL=https://example.sharepoint.com
+      # Add your API Key here later if using real RAG
+      # - GOOGLE_API_KEY=your_key_here 
+    volumes:
+      - ./backend/app:/app/app
+      - ./backend/uploads:/app/uploads
+
+  frontend:
+    build: ./frontend
+    container_name: sharepoint_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://backend:8000
+    depends_on:
+      - backend
