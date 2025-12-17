@@ -29,7 +29,8 @@ async def upload_files(files: List[UploadFile] = File(...)):
     Handles bulk file uploads (PDF, Excel, CSV, Word).
     Saves them to a 'uploads' directory and ingests them into RAG.
     """
-    rag = RAGEngine()
+    from app.services.rag_engine import rag_engine
+    
     upload_dir = "uploads"
     os.makedirs(upload_dir, exist_ok=True)
     
@@ -42,20 +43,19 @@ async def upload_files(files: List[UploadFile] = File(...)):
             with open(file_location, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
             
-            # TODO: Add specific loaders for Excel/CSV here.
-            # For now, we treat them as generic text or use standard loaders if compatible.
-            # RAG Engine 'ingest_documents' expects a list of dicts.
+            # Use Production Engine to Ingest
+            # Uses pypdf/pandas to extract text, Gemini to embed, and saves to SQLite/Chroma
+            doc = rag_engine.ingest_file(
+                file_path=file_location, 
+                original_filename=file.filename,
+                source="upload",
+                category="General" # Default category for now
+            )
             
-            # Mocking ingestion for the demo:
-            doc_data = {
-                "title": file.filename,
-                "url": f"file://{os.path.abspath(file_location)}",
-                "content": f"Content of uploaded file {file.filename}", # In real impl, use PyPDF/Pandas here
-                "type": file.filename.split('.')[-1]
-            }
-            
-            rag.ingest_documents([doc_data])
-            ingested_count += 1
+            if doc:
+                ingested_count += 1
+            else:
+                errors.append(f"{file.filename}: Ingestion returned None (empty text?)")
             
         except Exception as e:
             logger.error(f"Failed to upload {file.filename}: {e}")

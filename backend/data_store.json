@@ -1,0 +1,20 @@
+{
+  "documents": [
+    {
+      "id": "8e26f00c-94fe-4df2-8096-96dcc5f898bd",
+      "name": "test_realtime.txt",
+      "type": "txt",
+      "date": "2025-12-17 20:30",
+      "source": "upload",
+      "timestamp": 1765989039.461121
+    },
+    {
+      "id": "aad4f336-0cfa-47ea-a025-71cff10a72c4",
+      "name": "School workshop.xlsx",
+      "type": "xlsx",
+      "date": "2025-12-17 20:32",
+      "source": "upload",
+      "timestamp": 1765989155.103077
+    }
+  ]
+}

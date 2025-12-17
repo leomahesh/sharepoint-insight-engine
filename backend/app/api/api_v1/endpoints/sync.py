@@ -28,8 +28,14 @@ async def run_sync_task():
         sync_status["message"] = f"Ingesting {len(documents)} documents into Vector DB..."
         # In a real app, we would download the content of each document here.
         # For now, we mock the content based on the title/metadata for RAG demonstration.
+        from app.services.data_store import data_store
+        
         for doc in documents:
             doc["content"] = f"Content for {doc['title']}. This is a simulated text extract from the Sharepoint file located at {doc['url']}."
+            # Extract type from title or url
+            dtype = "unknown"
+            if "." in doc['title']: dtype = doc['title'].split('.')[-1]
+            data_store.add_document(name=doc['title'], doc_type=dtype, source="sharepoint")
             
         count = rag.ingest_documents(documents)
         

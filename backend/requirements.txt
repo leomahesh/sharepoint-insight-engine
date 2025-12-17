@@ -17,3 +17,5 @@ langchain-google-genai
 pandas
 openpyxl
 pypdf
+sqlalchemy
+langchain-text-splitters

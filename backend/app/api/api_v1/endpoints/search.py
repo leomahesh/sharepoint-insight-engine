@@ -1,31 +1,11 @@
-from fastapi import APIRouter, Query
-from typing import List, Optional
+from fastapi import APIRouter
+from app.services.rag_engine import rag_engine
 
 router = APIRouter()
 
 @router.get("/")
-async def search_documents(q: str = Query(..., min_length=1)):
+async def search_documents(q: str):
     """
-    Search documents by keyword.
-    Currently returns mock data.
+    Search documents using Semantic Search (ChromaDB).
     """
-    # Mock search logic
-    results = [
-        {
-            "id": "101",
-            "title": f"Result for {q} - Meeting Notes",
-            "snippet": f"Discussion regarding {q} and future plans...",
-            "source": "SharePoint/Team/General",
-            "author": "Alice Smith",
-            "modified": "2023-10-20"
-        },
-        {
-            "id": "102",
-            "title": f"Specification - {q}",
-            "snippet": f"Technical details about the implementation of {q}...",
-            "source": "SharePoint/Engineering/Specs",
-            "author": "Bob Jones",
-            "modified": "2023-09-15"
-        }
-    ]
-    return {"results": results}
+    return rag_engine.search(q)
