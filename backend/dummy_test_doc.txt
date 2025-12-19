@@ -1,0 +1,6 @@
+This is a test document about Quantum Computing.
+Quantum computing is a type of computation whose operations can exploit the phenomena of quantum mechanics, such as superposition, interference, and entanglement. Devices that perform quantum computations are known as quantum computers.
+In contrast to classical computers, which use bits that can be either 0 or 1, quantum computers use quantum bits, or qubits, which can exist in a superposition of both states simultaneously.
+This allows quantum computers to solve certain problems much faster than classical computers, such as integer factorization and simulation of quantum systems.
+However, building a stable quantum computer is extremely challenging due to decoherence and noise.
+Leading companies like Google, IBM, and Microsoft are racing to build practical quantum computers.

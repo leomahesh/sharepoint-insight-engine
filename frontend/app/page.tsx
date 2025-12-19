@@ -3,6 +3,12 @@
 import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from './context/AuthContext';
+import Flasher from './components/Flasher';
+import ChatInterface from './components/ChatInterface';
+import StatusIndicator from './components/StatusIndicator';
+import NotebookView from './components/NotebookView';
+import GoogleDriveView from './components/GoogleDriveView';
+import { ChatBot } from './components/ChatBot';
 
 // Icons as SVG components for professional look
 const Icons = {
@@ -12,7 +18,9 @@ const Icons = {
   Upload: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>,
   Sync: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>,
   PDF: () => <svg className="w-8 h-8 text-red-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" /></svg>,
-  Word: () => <svg className="w-8 h-8 text-blue-600" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" /></svg>
+  Word: () => <svg className="w-8 h-8 text-blue-600" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" /></svg>,
+  Notebook: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>,
+  Drive: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
 }
 
 // Define interface for Dashboard Data (Same as before)
@@ -27,6 +35,46 @@ export default function Dashboard() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Use state with initial mock values to look good immediately
+  // Dashboard state
+  // Dashboard state
+  const [activeTab, setActiveTab] = useState<'Analytics' | 'Accreditation' | 'OBEF' | 'Reports' | 'Chat' | 'Ministry' | 'Notebook' | 'Drive'>('Analytics');
+  const [activeAccreditationTab, setActiveAccreditationTab] = useState<'ABET' | 'CAA' | 'AACSB' | 'QAA'>('ABET');
+  const [folders, setFolders] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (activeTab === 'Accreditation') {
+      fetchFolders(activeAccreditationTab);
+    }
+  }, [activeTab, activeAccreditationTab]);
+
+  const fetchFolders = async (category: string) => {
+    try {
+      const res = await fetch(`http://localhost:8000/api/v1/folders/${category}`);
+      const data = await res.json();
+      setFolders(data);
+    } catch (err) {
+      console.error("Failed to fetch folders", err);
+    }
+  };
+
+  const handleCreateFolder = async () => {
+    const name = prompt("Enter new folder name:");
+    if (!name) return;
+
+    try {
+      const res = await fetch('http://localhost:8000/api/v1/folders/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, category: activeAccreditationTab })
+      });
+      if (res.ok) {
+        fetchFolders(activeAccreditationTab);
+      }
+    } catch (err) {
+      console.error("Failed to create folder", err);
+    }
+  };
+
   const [stats, setStats] = useState<DashboardStats>({
     recent_documents: [],
     document_counts: { pdf: 0, word: 0, excel: 0, ppt: 0 },
@@ -60,7 +108,7 @@ export default function Dashboard() {
   }, []);
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50 font-sans">
+    <div className="flex flex-col min-h-screen bg-slate-300 font-sans text-slate-900">
 
       {/* 1. Header Bar - Horizon Blue Gradient */}
       <header className="glass-header h-20 flex items-center justify-between px-8 sticky top-0 z-50">
@@ -77,6 +125,7 @@ export default function Dashboard() {
 
         {/* User Profile / Role Switcher */}
         <div className="flex items-center gap-4">
+          <StatusIndicator />
           <div className="flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-full border border-white/20 backdrop-blur-md">
             <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
             <span className="text-sm font-medium text-white">System Online</span>
@@ -94,29 +143,43 @@ export default function Dashboard() {
         </div>
       </header>
 
+      {/* Flasher Section */}
+      <Flasher />
+
       <div className="flex flex-1">
         {/* 2. Sidebar Navigation */}
-        <aside className="w-64 bg-white border-r border-slate-200 hidden lg:block sticky top-20 h-[calc(100vh-5rem)] z-30">
+        <aside className="w-64 bg-slate-200 border-r border-slate-300 hidden lg:block sticky top-20 h-[calc(100vh-5rem)] z-30">
           <nav className="p-6 space-y-2">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Main Menu</p>
+            <p className="text-xs font-bold text-slate-600 uppercase tracking-widest mb-4">Main Menu</p>
 
-            <NavItem href="#" active icon={<Icons.Dashboard />} label="Dashboard" />
+            <div onClick={() => setActiveTab('Dashboard' as any)} className="cursor-pointer">
+              <NavItem href="#" active={activeTab === 'Dashboard' as any} icon={<Icons.Dashboard />} label="Dashboard" />
+            </div>
+
+            <div onClick={() => setActiveTab('Notebook')} className="cursor-pointer">
+              <NavItem href="#" active={activeTab === 'Notebook'} icon={<Icons.Notebook />} label="Notebook AI" />
+            </div>
             <NavItem href="/search" icon={<Icons.Search />} label="Search Archive" />
             <NavItem href="/documents" icon={<Icons.Docs />} label="My Documents" />
 
-            <div className="pt-6 mt-6 border-t border-slate-100">
+            <div className="pt-6 mt-6 border-t border-slate-200">
               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Workspace</p>
+
+              <div onClick={() => setActiveTab('Drive')} className="cursor-pointer mb-2">
+                <NavItem href="#" active={activeTab === 'Drive'} icon={<Icons.Drive />} label="Google Drive" />
+              </div>
+
               {isAdmin && (
                 <>
-                  <button onClick={handleUploadClick} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-slate-600 hover:text-blue-700 hover:bg-blue-50 rounded-xl transition-all group">
-                    <span className="group-hover:scale-110 transition-transform text-slate-400 group-hover:text-blue-600"><Icons.Upload /></span>
+                  <button onClick={handleUploadClick} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-blue-400 hover:bg-blue-900/20 rounded-xl transition-all group">
+                    <span className="group-hover:scale-110 transition-transform text-slate-500 group-hover:text-blue-400"><Icons.Upload /></span>
                     Upload File
                   </button>
                   {/* Hidden Input */}
                   <input type="file" multiple ref={fileInputRef} onChange={handleUpload} className="hidden" />
 
-                  <Link href="/setup" className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-slate-600 hover:text-blue-700 hover:bg-blue-50 rounded-xl transition-all group">
-                    <span className="group-hover:scale-110 transition-transform text-slate-400 group-hover:text-blue-600"><Icons.Sync /></span>
+                  <Link href="/setup" className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-blue-400 hover:bg-blue-900/20 rounded-xl transition-all group">
+                    <span className="group-hover:scale-110 transition-transform text-slate-500 group-hover:text-blue-400"><Icons.Sync /></span>
                     Sync SharePoint
                   </Link>
                 </>
@@ -130,147 +193,225 @@ export default function Dashboard() {
 
           {/* Hero Section with College Image */}
           <div className="relative h-48 w-full bg-slate-900 overflow-hidden mb-8 group">
-            <div className="absolute inset-0 bg-[url('/horizon_campus.png')] bg-cover bg-center opacity-60 group-hover:opacity-70 transition-opacity duration-700"></div>
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/40 to-transparent"></div>
+            <div className="absolute inset-0 bg-[url('/horizon_campus.png')] bg-cover bg-center opacity-40 group-hover:opacity-50 transition-opacity duration-700"></div>
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-200/90 via-slate-100/40 to-transparent"></div>
 
             <div className="relative z-10 h-full flex flex-col justify-end px-8 pb-0">
-              <h2 className="text-3xl font-bold text-white mb-2 tracking-tight">HUC Dashboard</h2>
-              <p className="text-blue-100 mb-6 max-w-2xl text-sm font-medium">Manage student records, faculty documents, and research archives in a single secure environment.</p>
+              <h2 className="text-3xl font-bold text-slate-800 mb-2 tracking-tight">HUC Dashboard</h2>
+              <p className="text-slate-600 mb-6 max-w-2xl text-sm font-medium">Manage student records, faculty documents, and research archives in a single secure environment.</p>
 
               {/* Tabs Matching Background */}
-              <div className="flex gap-1">
-                <button className="px-6 py-3 bg-white text-blue-900 text-sm font-bold rounded-t-lg shadow-lg translate-y-1">Analytics</button>
-                <button className="px-6 py-3 bg-white/10 text-white backdrop-blur-md text-sm font-medium rounded-t-lg hover:bg-white/20 transition-colors border border-white/10">Accreditation</button>
-                <button className="px-6 py-3 bg-white/10 text-white backdrop-blur-md text-sm font-medium rounded-t-lg hover:bg-white/20 transition-colors border border-white/10">OBEF/Strategic Goal</button>
-                <button className="px-6 py-3 bg-white/10 text-white backdrop-blur-md text-sm font-medium rounded-t-lg hover:bg-white/20 transition-colors border border-white/10">Reports</button>
+              <div className="flex gap-1 overflow-x-auto">
+                <TabButton label="Analytics" active={activeTab === 'Analytics'} onClick={() => setActiveTab('Analytics')} />
+                <TabButton label="Accreditation" active={activeTab === 'Accreditation'} onClick={() => setActiveTab('Accreditation')} />
+                <TabButton label="Ministry Submission" active={activeTab === 'Ministry'} onClick={() => setActiveTab('Ministry')} />
+                <TabButton label="OBEF/Strategic Goal" active={activeTab === 'OBEF'} onClick={() => setActiveTab('OBEF')} />
+                <TabButton label="Chat" active={activeTab === 'Chat'} onClick={() => setActiveTab('Chat')} />
+                <TabButton label="Reports" active={activeTab === 'Reports'} onClick={() => setActiveTab('Reports')} />
               </div>
             </div>
           </div>
 
           <div className="px-8 pb-8">
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              <StatCard
-                title="Total Documents"
-                value={stats.total_documents}
-                icon={<span className="text-2xl">📚</span>}
-                trend="+12%"
-                color="blue"
-              />
-              <StatCard
-                title="PDF Reports"
-                value={stats.document_counts.pdf}
-                icon={<span className="text-2xl">📕</span>}
-                color="rose"
-              />
-              <StatCard
-                title="Word Documents"
-                value={stats.document_counts.word}
-                icon={<span className="text-2xl">📘</span>}
-                color="indigo"
-              />
-              <StatCard
-                title="Excel Sheets"
-                value={stats.document_counts.excel}
-                icon={<span className="text-2xl">📗</span>}
-                color="emerald"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* Recent Documents Table */}
-              <div className="lg:col-span-2 space-y-6">
-                <div className="glass-panel p-6 rounded-2xl bg-white border border-slate-100 shadow-sm">
-                  <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                      <span className="w-1.5 h-6 bg-blue-600 rounded-full"></span>
-                      Recently Accessed
-                    </h2>
-                    <Link href="/search" className="text-sm font-medium text-blue-600 hover:text-blue-800">View All &rarr;</Link>
+            {/* Tab Content */}
+            {activeTab === 'Analytics' && (
+              <>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  {/* Recent Documents Table Removed */}
+                  <div className="lg:col-span-2 space-y-6">
+                    {/* Placeholder or Empty */}
                   </div>
 
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b border-slate-100 text-left">
-                          <th className="pb-3 text-xs font-semibold text-slate-400 uppercase tracking-wider pl-4">Document Name</th>
-                          <th className="pb-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Type</th>
-                          <th className="pb-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Date</th>
-                          <th className="pb-3 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right pr-4">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-50">
-                        {stats.recent_documents.length === 0 ? (
-                          <tr>
-                            <td colSpan={4} className="py-8 text-center text-slate-400 text-sm">
-                              No recent documents found. Start by uploading a file.
-                            </td>
-                          </tr>
-                        ) : (
-                          stats.recent_documents.map((doc, idx) => (
-                            <tr key={idx} className="group hover:bg-blue-50/50 transition-colors">
-                              <td className="py-4 pl-4">
-                                <div className="flex items-center gap-3">
-                                  <span className="p-2 bg-slate-50 rounded-lg group-hover:bg-white transition-colors border border-slate-100">
-                                    {doc.type === 'pdf' ? <Icons.PDF /> : <Icons.Word />}
-                                  </span>
-                                  <span className="font-medium text-slate-700 group-hover:text-blue-700 transition-colors">{doc.name}</span>
-                                </div>
-                              </td>
-                              <td className="py-4 text-sm text-slate-500 capitalize">{doc.type}</td>
-                              <td className="py-4 text-sm text-slate-500">{doc.date}</td>
-                              <td className="py-4 text-right pr-4">
-                                <Link href={`/documents/${doc.id}`} className="inline-flex items-center px-3 py-1.5 border border-slate-200 shadow-sm text-xs font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50">
-                                  View
-                                </Link>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
+                  {/* Right Column Removed */}
+                  <div>
+                    {/* Placeholder or Empty */}
                   </div>
                 </div>
+              </>
+            )}
+
+            {activeTab === 'Notebook' && (
+              <NotebookView />
+            )}
+
+            {activeTab === 'Drive' && (
+              <div className="px-8 pb-8">
+                <GoogleDriveView />
               </div>
+            )}
 
-              {/* Right Column: Quick Stats / Calendar / Messages */}
-              <div className="space-y-6">
 
-                {/* Welcome Card */}
-                <div className="glass-panel p-6 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-lg shadow-blue-900/20 border-none relative overflow-hidden">
-                  {/* Abstract shapes */}
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-xl"></div>
-                  <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full -ml-12 -mb-12 blur-xl"></div>
+            {activeTab === 'Chat' && (
+              <div className="max-w-4xl mx-auto px-8 pb-8">
+                <ChatBot />
+              </div>
+            )}
 
-                  <h3 className="text-lg font-bold relative z-10">Welcome back, {role === 'admin' ? 'Administrator' : 'Student'}!</h3>
-                  <p className="text-blue-100 text-sm mt-2 relative z-10">You have {stats.total_documents} documents in your cloud archive.</p>
+            {activeTab === 'Accreditation' && (
+              <div className="max-w-6xl mx-auto">
+                {/* Sub-tabs Navigation */}
+                <div className="flex gap-6 border-b border-slate-200 mb-8 overflow-x-auto">
+                  {['ABET', 'CAA', 'AACSB', 'QAA'].map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveAccreditationTab(tab as any)}
+                      className={`pb-3 px-2 text-sm font-bold transition-all border-b-2 ${activeAccreditationTab === tab
+                        ? 'border-blue-500 text-blue-400'
+                        : 'border-transparent text-slate-500 hover:text-slate-300 hover:border-slate-600'
+                        }`}
+                    >
+                      {tab}
+                    </button>
+                  ))}
+                </div>
 
-                  <div className="mt-6 flex gap-3 relative z-10">
-                    <Link href="/search" className="flex-1 bg-white text-blue-700 text-center py-2 rounded-lg text-sm font-bold shadow-lg hover:bg-blue-50 transition-colors">
-                      Search
-                    </Link>
-                    {isAdmin && (
-                      <button onClick={handleUploadClick} className="flex-1 bg-blue-500/30 text-white border border-white/20 text-center py-2 rounded-lg text-sm font-bold hover:bg-blue-500/50 transition-colors">
-                        Upload
+                {/* Content Area */}
+                <div className="space-y-6">
+                  <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
+                    <div className="flex justify-between items-start mb-6">
+                      <div>
+                        <h3 className="text-xl font-bold text-slate-800">{activeAccreditationTab} Accreditation Workspace</h3>
+                        <p className="text-slate-500 mt-1">Manage compliance documents, self-study reports, and evidence for {activeAccreditationTab}.</p>
+                      </div>
+                      <button onClick={handleCreateFolder} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-colors shadow-sm">
+                        <span className="text-lg">+</span> New Folder
                       </button>
-                    )}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {/* Dynamic Folders */}
+                      {folders.map(folder => (
+                        <div key={folder.id} className="group p-4 rounded-xl bg-slate-50 border border-slate-100 hover:bg-blue-50 hover:border-blue-200 transition-all cursor-pointer flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <span className="text-3xl text-yellow-500/80 drop-shadow-sm">📁</span>
+                            <div>
+                              <h4 className="text-sm font-bold text-slate-700 group-hover:text-blue-600">{folder.name}</h4>
+                              <p className="text-xs text-slate-400">0 items</p>
+                            </div>
+                          </div>
+                          <span className="opacity-0 group-hover:opacity-100 text-slate-400 group-hover:text-blue-600 transition-all">→</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Recent Activity in this Tab */}
+                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                    <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Recent {activeAccreditationTab} Activity</h4>
+                    <div className="text-sm text-slate-500 italic">No recent updates in this workspace.</div>
                   </div>
                 </div>
-
-                {/* Department Quick Links */}
-                <div className="glass-panel p-6 rounded-2xl bg-white border border-slate-100">
-                  <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">University Departments</h3>
-                  <div className="space-y-3">
-                    <DepartmentLink name="Faculty of Engineering" icon="🏗️" />
-                    <DepartmentLink name="Business School" icon="💼" />
-                    <DepartmentLink name="Student Affairs" icon="🎓" />
-                    <DepartmentLink name="Library Services" icon="📚" />
-                  </div>
-                </div>
-
               </div>
-            </div>
+            )}
+
+            {(activeTab !== 'Analytics' && activeTab !== 'Chat' && activeTab !== 'Accreditation' && activeTab !== 'Ministry' && activeTab !== 'OBEF') && (
+              <div className="flex flex-col items-center justify-center h-96 text-slate-400">
+                <span className="text-4xl mb-4">🚧</span>
+                <p className="font-medium">The {activeTab} module is currently under development.</p>
+              </div>
+            )}
+
+            {activeTab === 'Ministry' && (
+              <div className="max-w-5xl mx-auto py-8">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                  <div className="bg-slate-50 border-b border-slate-100 p-8 flex flex-col items-center text-center">
+                    <img src="/ministry_logo.png" alt="Ministry of Higher Education" className="h-32 mb-6" />
+                    <h2 className="text-2xl font-bold text-slate-800">Ministry Requirements & Submissions</h2>
+                    <p className="text-slate-500 mt-2 max-w-2xl">Central repository for all compliance documents and official submissions to the Ministry of Higher Education & Scientific Research.</p>
+                  </div>
+
+                  <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="p-6 border border-slate-100 rounded-xl hover:border-blue-200 hover:bg-blue-50/30 transition-all cursor-pointer group">
+                      <div className="flex items-center gap-4 mb-4">
+                        <span className="text-2xl p-3 bg-blue-100 text-blue-600 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors">📄</span>
+                        <div>
+                          <h3 className="font-bold text-slate-700">New Submission</h3>
+                          <p className="text-xs text-slate-400">Start a new compliance filing</p>
+                        </div>
+                      </div>
+                      <button className="w-full py-2 bg-white border border-slate-200 rounded-lg text-sm font-semibold text-slate-600 group-hover:border-blue-300 group-hover:text-blue-600">Start Process</button>
+                    </div>
+
+                    <div className="p-6 border border-slate-100 rounded-xl hover:border-emerald-200 hover:bg-emerald-50/30 transition-all cursor-pointer group">
+                      <div className="flex items-center gap-4 mb-4">
+                        <span className="text-2xl p-3 bg-emerald-100 text-emerald-600 rounded-lg group-hover:bg-emerald-600 group-hover:text-white transition-colors">📊</span>
+                        <div>
+                          <h3 className="font-bold text-slate-700">Submission Status</h3>
+                          <p className="text-xs text-slate-400">Track pending approvals</p>
+                        </div>
+                      </div>
+                      <button className="w-full py-2 bg-white border border-slate-200 rounded-lg text-sm font-semibold text-slate-600 group-hover:border-emerald-300 group-hover:text-emerald-600">View Status</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'Ministry' && (
+              <div className="max-w-5xl mx-auto py-8">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                  <div className="bg-slate-50 border-b border-slate-100 p-8 flex flex-col items-center text-center">
+                    <img src="/ministry_logo.png" alt="Ministry of Higher Education" className="h-32 mb-6" />
+                    <h2 className="text-2xl font-bold text-slate-800">Ministry Requirements & Submissions</h2>
+                    <p className="text-slate-500 mt-2 max-w-2xl">Central repository for all compliance documents and official submissions to the Ministry of Higher Education & Scientific Research.</p>
+                  </div>
+
+                  <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="p-6 border border-slate-100 rounded-xl hover:border-blue-200 hover:bg-blue-50/30 transition-all cursor-pointer group">
+                      <div className="flex items-center gap-4 mb-4">
+                        <span className="text-2xl p-3 bg-blue-100 text-blue-600 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors">📄</span>
+                        <div>
+                          <h3 className="font-bold text-slate-700">New Submission</h3>
+                          <p className="text-xs text-slate-400">Start a new compliance filing</p>
+                        </div>
+                      </div>
+                      <button className="w-full py-2 bg-white border border-slate-200 rounded-lg text-sm font-semibold text-slate-600 group-hover:border-blue-300 group-hover:text-blue-600">Start Process</button>
+                    </div>
+
+                    <div className="p-6 border border-slate-100 rounded-xl hover:border-emerald-200 hover:bg-emerald-50/30 transition-all cursor-pointer group">
+                      <div className="flex items-center gap-4 mb-4">
+                        <span className="text-2xl p-3 bg-emerald-100 text-emerald-600 rounded-lg group-hover:bg-emerald-600 group-hover:text-white transition-colors">📊</span>
+                        <div>
+                          <h3 className="font-bold text-slate-700">Submission Status</h3>
+                          <p className="text-xs text-slate-400">Track pending approvals</p>
+                        </div>
+                      </div>
+                      <button className="w-full py-2 bg-white border border-slate-200 rounded-lg text-sm font-semibold text-slate-600 group-hover:border-emerald-300 group-hover:text-emerald-600">View Status</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'OBEF' && (
+              <div className="w-full h-full min-h-[85vh] p-8 bg-slate-50 rounded-2xl flex flex-col items-center justify-center text-center">
+                <div className="max-w-md w-full bg-white p-8 rounded-3xl shadow-xl border border-slate-100 transform transition-all hover:scale-[1.02]">
+                  <div className="w-20 h-20 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                    <span className="text-4xl">📊</span>
+                  </div>
+
+                  <h2 className="text-2xl font-bold text-slate-800 mb-2">OBEF/Strategic Goal Dashboard</h2>
+                  <p className="text-slate-500 mb-8">
+                    This advanced report is hosted on Google AI Studio for enhanced security and performance.
+                  </p>
+
+                  <a
+                    href="https://aistudio.google.com/apps/drive/1H0Ed3rmTNVMwpji5ZvKdngzHSqG2vBf5?showPreview=true&showAssistant=true&fullscreenApplet=true"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-200 transition-all flex items-center justify-center gap-2"
+                  >
+                    <span>Launch Dashboard</span>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                  </a>
+
+                  <p className="text-xs text-slate-400 mt-4">
+                    Opens in a new secure window
+                  </p>
+                </div>
+              </div>
+            )}
 
           </div>
         </main>
@@ -281,13 +422,31 @@ export default function Dashboard() {
 
 // Sub-components
 
+// Sub-components
+function TabButton({ label, active, onClick, highlight }: { label: string, active: boolean, onClick: () => void, highlight?: boolean }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`
+        px-6 py-3 text-sm font-medium rounded-t-lg transition-all border border-white/10
+        ${active
+          ? 'bg-white text-blue-800 font-bold shadow-sm translate-y-1'
+          : 'bg-white/40 text-slate-600 backdrop-blur-md hover:bg-white/60'}
+        ${highlight && !active ? 'bg-indigo-500/40 border-indigo-300/30' : ''}
+      `}
+    >
+      {label} {highlight && <span className="ml-1 text-xs">✨</span>}
+    </button>
+  );
+}
+
 function NavItem({ href, active = false, icon, label }: { href: string, active?: boolean, icon: React.ReactNode, label: string }) {
   return (
     <Link href={href} className={`
             flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all group
             ${active
-        ? 'bg-blue-50 text-blue-700 font-semibold shadow-sm'
-        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}
+        ? 'bg-blue-50 text-blue-600 font-bold shadow-sm border border-blue-100'
+        : 'text-slate-500 hover:bg-slate-200 hover:text-slate-800'}
         `}>
       <span className={`transition-colors ${active ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'}`}>
         {icon}
@@ -298,29 +457,29 @@ function NavItem({ href, active = false, icon, label }: { href: string, active?:
 }
 
 const COLORS: Record<string, string> = {
-  blue: "bg-blue-50 text-blue-600",
-  rose: "bg-rose-50 text-rose-600",
-  indigo: "bg-indigo-50 text-indigo-600",
-  emerald: "bg-emerald-50 text-emerald-600"
+  blue: "bg-blue-100 text-blue-600",
+  rose: "bg-rose-100 text-rose-600",
+  indigo: "bg-indigo-100 text-indigo-600",
+  emerald: "bg-emerald-100 text-emerald-600"
 };
 
 function StatCard({ title, value, icon, trend, color }: any) {
   const colorClass = COLORS[color] || COLORS.blue;
 
   return (
-    <div className="glass-panel bg-white p-5 rounded-2xl border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_12px_rgba(30,58,138,0.08)] transition-all cursor-default group">
+    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all cursor-default group">
       <div className="flex justify-between items-start">
         <div>
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{title}</p>
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">{title}</p>
           <h4 className="text-2xl font-bold text-slate-800 mt-1">{value}</h4>
         </div>
-        <div className={`p-3 rounded-xl ${colorClass} group-hover:scale-110 transition-transform`}>
+        <div className={`p-3 rounded-xl ${colorClass.replace('bg-', 'bg-opacity-20 bg-')} group-hover:scale-110 transition-transform`}>
           {icon}
         </div>
       </div>
       {trend && (
         <div className="mt-4 flex items-center text-xs font-medium text-emerald-600">
-          <span className="bg-emerald-50 px-1.5 py-0.5 rounded mr-2">↗ {trend}</span>
+          <span className="bg-emerald-100 px-1.5 py-0.5 rounded mr-2">↗ {trend}</span>
           <span className="text-slate-400 font-normal">vs last month</span>
         </div>
       )}
@@ -330,12 +489,58 @@ function StatCard({ title, value, icon, trend, color }: any) {
 
 function DepartmentLink({ name, icon }: any) {
   return (
-    <Link href="#" className="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50/50 transition-all group">
+    <Link href="#" className="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-slate-50 transition-all group">
       <div className="flex items-center gap-3">
         <span className="text-lg opacity-70 group-hover:scale-110 transition-transform">{icon}</span>
-        <span className="text-sm font-medium text-slate-700 group-hover:text-blue-700">{name}</span>
+        <span className="text-sm font-medium text-slate-500 group-hover:text-blue-600">{name}</span>
       </div>
-      <span className="text-slate-300 group-hover:text-blue-400">→</span>
+      <span className="text-slate-300 group-hover:text-blue-500">→</span>
     </Link>
   )
+}
+
+function WeeklyReportCard() {
+  const [weeklyStats, setWeeklyStats] = useState<any>(null);
+
+  useEffect(() => {
+    fetch('http://localhost:8000/api/v1/dashboard/weekly')
+      .then(res => res.json())
+      .then(data => setWeeklyStats(data))
+      .catch(err => console.error("Weekly stats error", err));
+  }, []);
+
+  if (!weeklyStats) return null;
+
+  return (
+    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+      <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-100 pb-2 flex justify-between">
+        <span>Weekly Uploads</span>
+        <span className="text-xs text-slate-500 normal-case bg-slate-100 px-2 py-0.5 rounded">Last 7 Days</span>
+      </h3>
+
+      <div className="space-y-4">
+        <WeeklyStatRow label="PDF Documents" count={weeklyStats.pdf} color="bg-red-500" />
+        <WeeklyStatRow label="Excel Sheets" count={weeklyStats.excel} color="bg-emerald-500" />
+        <WeeklyStatRow label="Word Documents" count={weeklyStats.word} color="bg-blue-500" />
+        <WeeklyStatRow label="Presentations" count={weeklyStats.ppt} color="bg-orange-500" />
+      </div>
+
+      <div className="mt-4 pt-3 border-t border-slate-100 text-center">
+        <p className="text-xs text-slate-400">Total processed this week: <span className="font-bold text-slate-700">{(weeklyStats.pdf + weeklyStats.excel + weeklyStats.word + weeklyStats.ppt + (weeklyStats.other || 0))}</span></p>
+      </div>
+    </div>
+  );
+}
+
+function WeeklyStatRow({ label, count, color }: any) {
+  if (!count) return null; // Hide if 0
+  return (
+    <div className="flex items-center justify-between text-sm">
+      <div className="flex items-center gap-2">
+        <span className={`w-2 h-2 rounded-full ${color}`}></span>
+        <span className="text-slate-600">{label}</span>
+      </div>
+      <span className="font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md min-w-[24px] text-center">{count}</span>
+    </div>
+  );
 }

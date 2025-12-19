@@ -1,14 +1,19 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f8fafc; /* Slate 50 */
-  --foreground: #0f172a; /* Slate 900 */
-  
+  --background: #020617;
+  /* Slate 950 */
+  --foreground: #f8fafc;
+  /* Slate 50 */
+
   /* Horizon Blue Palette */
-  --horizon-blue: #1e3a8a; /* Royal Blue */
-  --horizon-blue-light: #3b82f6; /* Brighter Blue */
-  --horizon-bg: #eff6ff; /* Light Cyan/Blue tint for backgrounds */
-  --glass-border: rgba(255, 255, 255, 0.5);
+  --horizon-blue: #1e3a8a;
+  /* Royal Blue */
+  --horizon-blue-light: #3b82f6;
+  /* Brighter Blue */
+  --horizon-bg: #1e293b;
+  /* Slate 800 */
+  --glass-border: rgba(255, 255, 255, 0.1);
 }
 
 @theme inline {
@@ -30,10 +35,11 @@ body {
 
 /* Glassmorphism Utilities */
 .glass-panel {
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(30, 41, 59, 0.7);
+  /* Slate 800 with opacity */
   backdrop-filter: blur(12px);
   border: 1px solid var(--glass-border);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
 }
 
 .glass-header {
@@ -41,4 +47,3 @@ body {
   color: white;
   box-shadow: 0 4px 20px -5px rgba(30, 58, 138, 0.4);
 }
-

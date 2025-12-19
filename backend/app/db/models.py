@@ -14,3 +14,11 @@ class Document(Base):
     upload_date = Column(DateTime, default=datetime.utcnow)
     summary = Column(Text, nullable=True) # AI generated summary
     vector_id = Column(String, nullable=True) # ID in ChromaDB
+
+class Folder(Base):
+    __tablename__ = "folders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True)
+    category = Column(String, index=True) # ABET, CAA, etc.
+    created_at = Column(DateTime, default=datetime.utcnow)

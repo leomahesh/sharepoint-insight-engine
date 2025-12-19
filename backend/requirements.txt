@@ -19,3 +19,6 @@ openpyxl
 pypdf
 sqlalchemy
 langchain-text-splitters
+google-api-python-client
+google-auth-oauthlib
+google-auth-httplib2

@@ -10,7 +10,51 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.api_v1.api import api_router
 
-app = FastAPI(title="SharePoint Insight Engine API")
+from contextlib import asynccontextmanager
+from app.services.rag_engine import RAGEngine
+from app.services.ingestion_manager import IngestionManager
+from app.services.watcher import RecursiveFileWatcher
+import os
+
+# Global state holders
+rag_engine = None
+ingestion_manager = None
+watcher = None
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    global ingestion_manager, watcher
+    
+    # 1. Use Global RAG Engine (Already init on import)
+    # rag_engine is imported from app.services.rag_engine
+    
+    # 2. Init Ingestion Manager
+    ingestion_manager = IngestionManager(rag_engine)
+    app.state.ingestion_manager = ingestion_manager # Expose to API
+    
+    # 3. Init & Start Watcher
+    # Use absolute path for data archive or relative to backend
+    watch_dir = os.path.join(os.path.dirname(__file__), "..", "data_archive")
+    watcher = RecursiveFileWatcher(watch_dir, ingestion_manager)
+    watcher.start()
+    
+    # 4. Init Google Drive Service
+    try:
+        from app.services.google_drive_service import GoogleDriveService
+        drive_base_dir = os.path.join(os.path.dirname(__file__), "..") # backend/
+        google_drive_service = GoogleDriveService(drive_base_dir)
+        app.state.google_drive_service = google_drive_service
+    except Exception as e:
+        print(f"Failed to init Google Drive Service: {e}")
+
+    yield
+    
+    # Shutdown
+    if watcher:
+        watcher.stop()
+
+app = FastAPI(title="SharePoint Insight Engine API", lifespan=lifespan)
 
 # Configure CORS
 app.add_middleware(

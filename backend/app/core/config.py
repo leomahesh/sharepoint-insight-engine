@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     SHAREPOINT_SITE_URL: str = "https://skylineuniversity-my.sharepoint.com/people?source=waffle"
     
     # AI Configuration
-    GEMINI_API_KEY: Optional[str] = None
+    GEMINI_API_KEY: Optional[str] = "AIzaSyClHUE2UVKeLaY0NSf5ePzyRGGAsauSA2c"
     OPENAI_API_KEY: Optional[str] = None # Keeping for backward compat if needed, but prioritizing Gemini
 
     class Config:

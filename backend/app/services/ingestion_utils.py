@@ -19,6 +19,11 @@ try:
 except ImportError:
     openpyxl = None
 
+try:
+    from docx import Document as DocxDocument
+except ImportError:
+    DocxDocument = None
+
 logger = logging.getLogger(__name__)
 
 def extract_text_from_file(file_path: str, file_type: str) -> str:
@@ -41,6 +46,38 @@ def extract_text_from_file(file_path: str, file_type: str) -> str:
                 df = pd.read_excel(file_path)
             # Convert full dataframe to string representation
             content = df.to_string()
+        
+        elif file_type in ['docx', 'doc']:
+            if not DocxDocument:
+                 return "[Error] python-docx not installed."
+            doc = DocxDocument(file_path)
+            content = "\n".join([para.text for para in doc.paragraphs])
+
+        elif file_type in ['pptx', 'ppt']:
+            try:
+                from pptx import Presentation
+                prs = Presentation(file_path)
+                text_runs = []
+                for slide in prs.slides:
+                    for shape in slide.shapes:
+                        if hasattr(shape, "text"):
+                            text_runs.append(shape.text)
+                content = "\n".join(text_runs)
+            except ImportError:
+                 return "[Error] python-pptx not installed."
+        
+        elif file_type in ['pptx', 'ppt']:
+            try:
+                from pptx import Presentation
+                prs = Presentation(file_path)
+                text_runs = []
+                for slide in prs.slides:
+                    for shape in slide.shapes:
+                        if hasattr(shape, "text"):
+                            text_runs.append(shape.text)
+                content = "\n".join(text_runs)
+            except ImportError:
+                 return "[Error] python-pptx not installed."
         
         elif file_type in ['txt', 'md', 'json']:
             with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:

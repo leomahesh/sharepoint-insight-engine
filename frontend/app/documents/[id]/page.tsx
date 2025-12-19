@@ -1,23 +1,25 @@
-'use client';
+    'use client';
 
 // In Next.js App Router, params are passed to the page component
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, use } from 'react';
+import StudioTiles from '../../components/StudioTiles';
 
-export default function DocumentPage({ params }: { params: { id: string } }) {
+export default function DocumentPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = use(params);
     const [doc, setDoc] = useState<any>(null);
-    const [comments, setComments] = useState<any[]>([]);
+    const [comments, setComments] = useState<any[]>([]);    
     const [comment, setComment] = useState('');
 
     useEffect(() => {
-        fetch(`http://localhost:8000/api/v1/documents/${params.id}`)
+        fetch(`http://localhost:8000/api/v1/documents/${id}`)
             .then(res => res.json())
             .then(data => {
                 setDoc(data);
                 setComments(data.comments || []);
             })
             .catch(err => console.error("Failed to fetch doc", err));
-    }, [params.id]);
+    }, [id]);
 
     const handleAddComment = () => {
         if (!comment.trim()) return;
@@ -63,6 +65,12 @@ export default function DocumentPage({ params }: { params: { id: string } }) {
                         <div className="h-96 bg-gray-100 rounded-lg flex items-center justify-center mt-8">
                             <span className="text-gray-400">PDF Viewer Placeholder</span>
                         </div>
+                    </div>
+
+                    {/* Studio Tiles Section */}
+                    <div className="mt-12 border-t pt-8">
+                        <h2 className="text-xl font-bold text-gray-900 mb-4">Studio Actions</h2>
+                        <StudioTiles selectedFile={null} fileContent={doc.content_preview || doc.ai_report || "No content available."} />
                     </div>
                 </div>
 

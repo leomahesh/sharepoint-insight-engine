@@ -8,37 +8,46 @@ export default function SearchPage() {
     const [results, setResults] = useState<any[]>([]);
     const [isSearching, setIsSearching] = useState(false);
 
-    // Mock search function
+    const [aiAnswer, setAiAnswer] = useState<string | null>(null);
+
     const handleSearch = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!query.trim()) return;
 
         setIsSearching(true);
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 500));
+        setAiAnswer(null); // Reset
+        setResults([]);
 
-        // Mock results
-        setResults([
-            {
-                id: "101",
-                title: `Result for ${query} - Meeting Notes`,
-                snippet: `Discussion regarding ${query} and future plans for the quarter...`,
-                source: "SharePoint/Team/General",
-                author: "Alice Smith",
-                modified: "2023-10-20",
-                type: 'word'
-            },
-            {
-                id: "102",
-                title: `Specification - ${query}`,
-                snippet: `Technical details about the implementation of ${query} and architecture...`,
-                source: "SharePoint/Engineering/Specs",
-                author: "Bob Jones",
-                modified: "2023-09-15",
-                type: 'pdf'
+        try {
+            const res = await fetch(`http://localhost:8000/api/v1/search?q=${encodeURIComponent(query)}`);
+            if (res.ok) {
+                const data = await res.json();
+
+                // Set Answer
+                if (data.answer) {
+                    setAiAnswer(data.answer);
+                }
+
+                // Map results
+                const rawResults = data.results || [];
+                const mappedResults = rawResults.map((item: any) => ({
+                    id: item.id,
+                    title: item.filename,
+                    snippet: item.snippet,
+                    source: "Upload",
+                    author: "System",
+                    modified: item.metadata?.created_at ? new Date(item.metadata.created_at).toLocaleDateString() : "Unknown",
+                    type: item.filename.endsWith('pdf') ? 'pdf' : 'word'
+                }));
+                setResults(mappedResults);
+            } else {
+                console.error("Search failed");
             }
-        ]);
-        setIsSearching(false);
+        } catch (err) {
+            console.error("Search error", err);
+        } finally {
+            setIsSearching(false);
+        }
     };
 
     return (
@@ -69,7 +78,22 @@ export default function SearchPage() {
                     </div>
                 </form>
 
-                <div className="space-y-4">
+                <div className="space-y-6">
+                    {/* Gemini Answer Section */}
+                    {aiAnswer && (
+                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-2xl border border-blue-100 shadow-sm relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-4 opacity-10">
+                                <svg className="w-24 h-24 text-blue-600" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z" /></svg>
+                            </div>
+                            <h2 className="text-lg font-bold text-blue-900 mb-3 flex items-center gap-2">
+                                ✨ Gemini Answer
+                            </h2>
+                            <div className="prose text-blue-900/80 max-w-none text-sm leading-relaxed">
+                                <p className="whitespace-pre-line">{aiAnswer}</p>
+                            </div>
+                        </div>
+                    )}
+
                     {results.length > 0 ? (
                         results.map((result) => (
                             <div key={result.id} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">

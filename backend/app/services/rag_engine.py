@@ -131,12 +131,22 @@ class RAGEngine:
         results = self.vector_store.similarity_search(query, k=k)
         processed_results = []
         
-        for res in results:
-            processed_results.append({
-                "filename": res.metadata.get("filename", "Unknown"),
-                "snippet": res.page_content[:300] + "...",
-                "metadata": res.metadata
-            })
+        db = SessionLocal()
+        try:
+            for res in results:
+                filename = res.metadata.get("filename", "Unknown")
+                # Find the document in SQLite to get the proper ID
+                db_doc = db.query(DBDocument).filter(DBDocument.filename == filename).first()
+                doc_id = str(db_doc.id) if db_doc else "0"
+                
+                processed_results.append({
+                    "id": doc_id,
+                    "filename": filename,
+                    "snippet": res.page_content[:300] + "...",
+                    "metadata": res.metadata
+                })
+        finally:
+            db.close()
             
         return processed_results
 
@@ -147,20 +157,64 @@ class RAGEngine:
         if self.use_mock:
             return "Mock AI Answer."
             
-        docs = self.vector_store.similarity_search(query_text, k=4)
-        context = "\n\n".join([d.page_content for d in docs])
+        # 1. Expand Query
+        expanded_queries = self.expand_query(query_text)
+        logger.info(f"Expanded Queries: {expanded_queries}")
+        
+        # 2. Retrieve Documents (Multi-query)
+        all_docs = []
+        seen_ids = set()
+        
+        # Search original + expanded
+        queries_to_run = [query_text] + expanded_queries[:2] # Limit to top 2 expansions
+        
+        for q in queries_to_run:
+            docs = self.vector_store.similarity_search(q, k=3)
+            for d in docs:
+                # Deduplicate based on page content hash or metadata
+                doc_hash = hash(d.page_content) 
+                if doc_hash not in seen_ids:
+                    all_docs.append(d)
+                    seen_ids.add(doc_hash)
+        
+        # Limit context window
+        context = "\n\n".join([d.page_content for d in all_docs[:6]]) 
         
         from langchain_core.messages import HumanMessage
+        prioritize_sources = "Answer STRICTLY based on the context below. If not found, say 'I cannot find this information in the internal documents.' Cite the source filename for every claim."
+        
         prompt = f"""
-        Answer the user question using the following context:
+        You are an internal Knowledge Assistant for Horizon University College.
+        {prioritize_sources}
         
         Context:
-        {context[:5000]}
+        {context[:6000]}
         
         Question: {query_text}
         """
         response = self.llm.invoke([HumanMessage(content=prompt)])
         return response.content
+        
+    def expand_query(self, query: str) -> List[str]:
+        """
+        Generate variations of the query to improve retrieval.
+        """
+        if self.use_mock: return []
+        
+        from langchain_core.messages import HumanMessage
+        prompt = f"""
+        Generate 3 search queries to help retrieve information for the following user question. 
+        Focus on technical terms, synonyms, and document types.
+        Return ONLY the queries separated by newlines.
+        
+        User Question: {query}
+        """
+        try:
+            res = self.llm.invoke([HumanMessage(content=prompt)])
+            return [line.strip() for line in res.content.split('\n') if line.strip()]
+        except Exception as e:
+            logger.error(f"Query expansion failed: {e}")
+            return []
 
     def get_dashboard_stats(self) -> Dict:
         """
@@ -207,6 +261,43 @@ class RAGEngine:
         finally:
             db.close()
 
+    def get_weekly_stats(self) -> Dict:
+        """
+        Get upload counts for the last 7 days grouped by type.
+        """
+        if self.use_mock:
+             return {"pdf": 2, "word": 1, "excel": 0, "ppt": 0, "other": 0}
+
+        db = SessionLocal()
+        try:
+            from datetime import timedelta
+            seven_days_ago = datetime.utcnow() - timedelta(days=7)
+            
+            # Query docs created >= 7 days ago
+            recent_docs = db.query(DBDocument).filter(DBDocument.upload_date >= seven_days_ago).all()
+            
+            stats = {"pdf": 0, "word": 0, "excel": 0, "ppt": 0, "other": 0}
+            
+            for doc in recent_docs:
+                ft = doc.file_type.lower() if doc.file_type else ""
+                if ft == 'pdf':
+                    stats['pdf'] += 1
+                elif ft in ['docx', 'doc']:
+                    stats['word'] += 1
+                elif ft in ['xlsx', 'xls', 'csv']:
+                    stats['excel'] += 1
+                elif ft in ['pptx', 'ppt']:
+                    stats['ppt'] += 1
+                else:
+                    stats['other'] += 1
+            
+            return stats
+        except Exception as e:
+            logger.error(f"Weekly Stats Error: {e}")
+            return {"error": str(e)}
+        finally:
+            db.close()
+
     def summarize(self, content: str) -> str:
         if self.use_mock or not content:
             return "Summary unavailable."
@@ -218,6 +309,164 @@ class RAGEngine:
             return res.content
         except Exception as e:
             return "Summary generation failed."
+
+    def generate_podcast_script(self, content: str) -> str:
+        """
+        Generate a dialogue script between two hosts discussing the content.
+        """
+        if self.use_mock or not content:
+            return "Podcast script unavailable in mock mode."
+
+        from langchain_core.messages import HumanMessage
+        prompt = f"""
+        You are a scriptwriter for a tech podcast.
+        Convert the following content into a engaging dialogue between two hosts, 'Alex' and 'Jamie'.
+        They should discuss the key points in a lively, conversational tone.
+        Keep it under 500 words.
+
+        Content:
+        {content[:4000]}
+        """
+        try:
+            res = self.llm.invoke([HumanMessage(content=prompt)])
+            return res.content
+        except Exception as e:
+            logger.error(f"Podcast generation failed: {e}")
+            return "Podcast generation failed."
+
+    def generate_mind_map(self, content: str) -> str:
+        """
+        Generate Mermaid.js syntax for a mind map.
+        """
+        if self.use_mock or not content:
+             return "graph TD;\nA[Mock] --> B[Mind Map];"
+
+        from langchain_core.messages import HumanMessage
+        prompt = f"""
+        Create a Mind Map using Mermaid.js syntax based on the following content.
+        Return ONLY the Mermaid code block starting with `graph TD` or `mindmap`.
+        Do not include markdown code block backticks (```mermaid). 
+        Just the raw syntax.
+
+        Content:
+        {content[:4000]}
+        """
+        try:
+            res = self.llm.invoke([HumanMessage(content=prompt)])
+            # Clean up if model adds backticks
+            clean_content = res.content.replace("```mermaid", "").replace("```", "").strip()
+            return clean_content
+        except Exception as e:
+             logger.error(f"Mind Map generation failed: {e}")
+             return "graph TD;\nError[Generation Failed];"
+
+    def generate_quiz(self, content: str) -> List[Dict]:
+        """
+        Generate a list of quiz questions (JSON format).
+        """
+        if self.use_mock or not content:
+            return [{"question": "Is this a mock quiz?", "options": ["Yes", "No"], "answer": "Yes"}]
+
+        from langchain_core.messages import HumanMessage
+        import json
+        
+        prompt = f"""
+        Generate 3 multiple-choice quiz questions based on the content.
+        Return the result as a STRICT JSON array.
+        Each object should have:
+        - "question": string
+        - "options": list of 4 strings
+        - "answer": string (the correct option)
+
+        Content:
+        {content[:4000]}
+        """
+        try:
+            res = self.llm.invoke([HumanMessage(content=prompt)])
+            # Basic cleanup to ensure we get just the JSON part if the model chats
+            text = res.content
+            start_idx = text.find('[')
+            end_idx = text.rfind(']') + 1
+            if start_idx != -1 and end_idx != -1:
+                json_str = text[start_idx:end_idx]
+                return json.loads(json_str)
+            return []
+        except Exception as e:
+            logger.error(f"Quiz generation failed: {e}")
+            return []
+    def generate_deep_report(self, topic: str, source_ids: List[str] = []) -> str:
+        """
+        Generate a comprehensive markdown report on a topic using specific sources.
+        """
+        if self.use_mock:
+            return "# Mock Deep Report\n\n- Executive Summary\n- Detailed Findings\n- Recommendations"
+
+        search_filter = None
+        
+        # 1. Resolve Source IDs to Filenames if provided
+        if source_ids:
+            db = SessionLocal()
+            try:
+                # Filter documents by the provided IDs
+                docs = db.query(DBDocument).filter(DBDocument.id.in_(source_ids)).all()
+                filenames = [d.filename for d in docs]
+                
+                if filenames:
+                    # ChromaDB filter format: {'key': {'$in': ['val1', 'val2']}}
+                    # Check if single or multiple for simpler filtering query if needed, but $in is standard.
+                    if len(filenames) == 1:
+                        search_filter = {"filename": filenames[0]}
+                    else:
+                        search_filter = {"filename": {"$in": filenames}}
+            except Exception as e:
+                logger.error(f"Error resolving source IDs: {e}")
+            finally:
+                db.close()
+        
+        # 2. Search specifically for the topic with filter
+        try:
+            results = self.vector_store.similarity_search(topic, k=25, filter=search_filter)
+        except Exception as e:
+            logger.warning(f"Filtered search failed, falling back to unfiltered: {e}")
+            results = self.vector_store.similarity_search(topic, k=20)
+
+        context_text = "\n\n".join([d.page_content for d in results])
+
+        if not context_text:
+            return f"# No Data Found\n\nI could not find any relevant information on '{topic}' in the selected sources."
+
+        from langchain_core.messages import HumanMessage
+        prompt = f"""
+        You are a Senior Strategic Analyst for Horizon University College.
+        Create a "Deep Report" on the following topic based strictly on the provided context.
+        
+        Topic: {topic}
+        
+        Format the output in clean Markdown with the following sections:
+        # [Report Title] (Make it professional)
+        
+        ## Executive Summary
+        (A concise 3-bullet summary of the critical findings)
+        
+        ## Key Findings
+        (Detailed analysis of the facts from the documents. Cite sources where possible like [Filename])
+        
+        ## Strategic Implications
+        (What this means for the university's goals or compliance)
+        
+        ## Recommendations
+        (Actionable next steps based on the data)
+        
+        Context Data:
+        {context_text[:20000]} 
+        """
+        
+        try:
+            res = self.llm.invoke([HumanMessage(content=prompt)])
+            return res.content
+        except Exception as e:
+            logger.error(f"Deep Report generation failed: {e}")
+            return f"# Error Generating Report\n\nAn error occurred: {str(e)}"
 
 # Singleton Instance
 rag_engine = RAGEngine()

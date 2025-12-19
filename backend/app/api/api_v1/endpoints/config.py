@@ -65,3 +65,20 @@ async def upload_files(files: List[UploadFile] = File(...)):
         "message": f"Successfully processed {ingested_count} files.",
         "errors": errors
     }
+
+# Flasher Config
+from app.services.flasher_service import get_flasher_config, update_flasher_config, FlasherUpdate
+
+@router.get("/flasher")
+async def get_flasher():
+    """
+    Get the current flasher message.
+    """
+    return get_flasher_config()
+
+@router.post("/flasher")
+async def set_flasher(config: FlasherUpdate):
+    """
+    Update the flasher message.
+    """
+    return update_flasher_config(config)
